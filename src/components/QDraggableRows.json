@@ -1,0 +1,18 @@
+{
+  "type": "component",
+  "props": {
+    "value": {
+      "type": "Array",
+      "desc": "An array of IDs which is the order of your rows. This should be used with v-model."
+    },
+    "depthMap": {
+      "type": "Object",
+      "desc": "An object that maps id's to the prop names and an integer representing the depth of each row to the prop values. If every ID has a depth of 0 then the list is flat. Whenever there is an ID with a higher integer (eg. 1) it is considered a child row to the row above it and will appear indented."
+    }
+  },
+  "slots": {
+    "default": {
+      "desc": "The only direct child should be a QDraggableRow with a v-for to represent your rows."
+    }
+  }
+}

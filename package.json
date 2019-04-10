@@ -1,0 +1,15 @@
+{
+  "name": "quasar-app-extension-draggable",
+  "version": "0.0.1-beta.1",
+  "description": "A Quasar extension that makes elements draggable and movable with keyboard.",
+  "author": "Luca Ban - Mesqueeb",
+  "main": "src/index.js",
+  "scripts": {
+    "test": "echo \"No test specified\" && exit 0"
+  },
+  "engines": {
+    "node": ">= 8.9.0",
+    "npm": ">= 5.6.0",
+    "yarn": ">= 1.6.0"
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "type": "component",
+  "props": {
+    "value": {
+      "type": "Number",
+      "desc": "An number representing the depth of your row. This should be used with v-model."
+    },
+    "id": {
+      "type": "String",
+      "desc": "Every row must have an id assigned which is the same ID as the QDraggableRows array representing the row order."
+    },
+    "holdToSelect": {
+      "type": "Boolean",
+      "desc": ""
+    },
+    "selectedStyle": {
+      "type": "Object",
+      "desc": ""
+    },
+    "hoverStyle": {
+      "type": "Object",
+      "desc": ""
+    }
+  },
+  "slots": {
+    "default": {
+      "desc": "The default slot is the content of your actual row."
+    }
+  }
+}
