@@ -2,7 +2,8 @@
   <button
     :class="[
       'ext-draggable-row', {
-      'ext-draggable-row--being-dragged': beingDragged
+      'ext-draggable-row--being-dragged': beingDragged,
+      'ext-draggable-row--selected': selected,
     }]"
     @click.stop.prevent="tapped"
     v-touch-hold:200.mouse.stop.prevent="held"
@@ -24,7 +25,9 @@
       class="ext-draggable-row__selection-indicator"
       :style="styleSelectionIndicator"
     >
-      <slot name="selection-indicator" />
+      <slot name="selection-indicator">
+        <div class="ext-draggable-row__selection-indicator__default"></div>
+      </slot>
     </div>
     <slot :selected="selected"/>
   </button>
@@ -32,14 +35,14 @@
 
 <style lang="stylus" scoped>
 
-box-shadow-3 = 0 1px 8px rgba(0,0,0,0.2), 0 3px 4px rgba(0,0,0,0.14), 0 3px 3px -2px rgba(0,0,0,0.12) !important
+bs = 0 1px 8px rgba(0,0,0,0.2), 0 3px 4px rgba(0,0,0,0.14), 0 3px 3px -2px rgba(0,0,0,0.12) !important
+
 shadow-3()
-  -webkit-box-shadow box-shadow-3
-  box-shadow box-shadow-3
+  -webkit-box-shadow bs
+  box-shadow bs
 
 .ext-draggable-row
   reset-button()
-  min-height 36px // q-input height
   flex 1
   display flex
   align-items center
@@ -64,6 +67,11 @@ shadow-3()
     > *
       height 100%
       width 100%
+    &__default
+      box-shadow 0 0 0 3px var(--q-color-primary)
+      opacity 0.6
+  &--selected
+    z-index 3
   &--being-dragged
     z-index 3
     .ext-draggable-row__selection-indicator
