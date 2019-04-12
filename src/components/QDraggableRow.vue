@@ -4,9 +4,11 @@
       'ext-draggable-row', {
       'ext-draggable-row--being-dragged': beingDragged,
       'ext-draggable-row--selected': selected,
+      'ext-draggable-row--selected-child': selectedChild,
     }]"
     @click.stop.prevent="tapped"
     v-touch-hold:200.mouse.stop.prevent="held"
+    v-touch-pan.vertical.prevent.mouse="handlePan"
     @keydown.up.exact.stop.prevent="rows.selectPrev(id)"
     @keydown.down.exact.stop.prevent="rows.selectNext(id)"
     @keydown.up.alt.exact.stop.prevent="rows.moveUp(id)"
@@ -18,7 +20,6 @@
     @keydown.esc.exact.stop.prevent="unselectAll"
     @blur="onBlur"
     :style="style"
-    v-touch-pan.vertical.mouse="handlePan"
   >
     <div
       v-show="selected"
@@ -26,7 +27,9 @@
       :style="styleSelectionIndicator"
     >
       <slot name="selection-indicator">
-        <div class="ext-draggable-row__selection-indicator__default"></div>
+        <div class="ext-draggable-row__selection-indicator__default">
+          <div></div>
+        </div>
       </slot>
     </div>
     <slot :selected="selected"/>
@@ -57,6 +60,9 @@ shadow-3()
     outline 0
   > *:not(.ext-draggable-row__selection-indicator)
     z-index 2
+    height 100%
+    width 100%
+    text-align initial
   &__selection-indicator
     z-index 1
     position absolute
@@ -68,9 +74,13 @@ shadow-3()
       height 100%
       width 100%
     &__default
-      box-shadow 0 0 0 3px var(--q-color-primary)
-      opacity 0.6
-  &--selected
+      background white
+      > div
+        box-shadow 0 0 0 3px var(--q-color-primary)
+        opacity 0.6
+        height 100%
+        width 100%
+  &--selected, &--selected-child
     z-index 3
   &--being-dragged
     z-index 3
@@ -98,6 +108,18 @@ export default {
     this.$wrapper.mountRow(this)
   },
   mounted () {
+    function start (_) {
+      _.preventDefault()
+      console.log('s', _)
+    }
+    function stop (_) {
+      _.preventDefault()
+      console.log('e', _)
+    }
+    // this.$el.addEventListener('mousedown', _ => start(_))
+    // this.$el.addEventListener('click', _ => stop(_))
+    // this.$el.addEventListener('touchstart', _ => start(_))
+    // this.$el.addEventListener('touchend', _ => stop(_))
     this.rows.$on('select-id', id => { this.selectIdEvent(id) })
     this.rows.$on('set-depth', ({id, depth}) => {
       if (this.id !== id) return
@@ -107,9 +129,11 @@ export default {
   data () {
     return {
       selected: false,
+      selectedChild: false,
       translateY: 0,
       beingDragged: false,
-      rowHeight: 0, // reset on select every time
+      elHeight: 0, // reset on select every time
+      elOffsetTop: 0, // reset on select every time
     }
   },
   computed: {
@@ -171,10 +195,10 @@ export default {
     rowHeightTotal () {
       const children = this.childrenIds
       const height = children.reduce((total, id) => {
-        const childEl = this.rows.rowElMap[id]
-        const h = (childEl) ? childEl.height : 0
+        const vueComp = this.rows.rowComponents[id]
+        const h = (vueComp) ? vueComp.elHeight : 0
         return total + h
-      }, this.rowHeight)
+      }, this.elHeight)
       return height
     },
     style () {
@@ -195,6 +219,16 @@ export default {
       this.select()
       this.$emit('held', this.selected)
     },
+    heldFor400 () {
+      if (!this.selected) return
+      const rowChildren = this.childrenIds || []
+      const draggingIds = [this.id, ...rowChildren]
+      draggingIds.forEach(id => {
+        const vueComp = this.rows.rowComponents[id]
+        if (!vueComp) return
+        vueComp.beingDragged = true
+      })
+    },
     tapped () {
       if (this.selected) return this.unselectAll()
       if (this.selectedId) return this.select()
@@ -202,7 +236,7 @@ export default {
       this.select()
     },
     unselectAll () {
-      this.$parent.$parent.unselectAll()
+      this.rows.unselectAll()
     },
     unselect () {
       this.selected = false
@@ -212,9 +246,12 @@ export default {
       this.rows.selectId(this.id)
     },
     selectIdEvent (selectedId) {
+      this.elHeight = this.$el.offsetHeight
+      const { top } = this.$el.getBoundingClientRect()
+      this.elOffsetTop = top
       if (this.id === selectedId) {
         this.selected = true
-        this.rowHeight = this.$el.clientHeight
+        this.rows.selectChildren(this.id)
         this.$el.focus()
         return
       }

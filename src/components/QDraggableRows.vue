@@ -53,9 +53,9 @@ export default {
     },
     rowElMap () {
       const rowElMap = this.rows.reduce((carry, row) => {
-        if (!row.$el) return carry
-        const top = row.$el.offsetTop
-        const height = row.$el.clientHeight
+        if (!row) return carry
+        const top = row.elOffsetTop
+        const height = row.elHeight
         const bottom = top + height
         const middle = top + (height / 2)
         carry[row.id] = {id: row.id, top, bottom, middle, height}
@@ -106,6 +106,16 @@ export default {
     },
     unselectAll () {
       this.selectId(null)
+    },
+    selectChildren (id) {
+      const rowComponent = this.rowComponents[id]
+      if (!rowComponent) return
+      this.rows.forEach(rowComp => {
+        rowComp.selectedChild = false
+      })
+      rowComponent.childrenIds.forEach(childId => {
+        this.rowComponents[childId].selectedChild = true
+      })
     },
     moveUp (id) {
       const targetId = this.rowComponents[id].prevIdSameDepthOrParent
@@ -161,10 +171,11 @@ export default {
         }
       })
     },
-    draggingAboveRow (cursorPosition, direction) {
+    draggingAboveRow (cursorPosition, direction, draggingIds) {
       const windowScrollY = getScrollPosition(window)
       const below = this.rowElMapOrdered
         .find(element => {
+          if (draggingIds.includes(element.id)) return false
           return (direction === 'up')
             ? (element.bottom - windowScrollY > cursorPosition)
             : (element.top - windowScrollY > cursorPosition)
@@ -181,7 +192,7 @@ export default {
       const outerId = (direction === 'up') ? rowId : lastChildIdOrSelf
       const differenceIdOuterId = this.rowElMap[outerId].top - this.rowElMap[rowId].top
       const cursorPositionAdjusted = cursorPosition + differenceIdOuterId
-      const hoveringAbove = this.draggingAboveRow(cursorPositionAdjusted, direction)
+      const hoveringAbove = this.draggingAboveRow(cursorPositionAdjusted, direction, draggingIds)
       if (isFinal) {
         return this.dropRow(rowId, hoveringAbove)
       }
@@ -194,8 +205,7 @@ export default {
       const indexHovering = (hoveringAbove === '__end__')
         ? this.rowOrder.length
         : this.rowOrder.indexOf(hoveringAbove)
-      const draggingUp = (indexHovering < indexOriginal)
-      const draggingDown = (indexHovering > indexOriginal)
+      // console.log('hoveringAbove →', hoveringAbove, 'indexHovering → ', indexHovering, 'indexOriginal → ', indexOriginal)
       this.rowOrder.forEach((id, i) => {
         const rowComponent = this.rowComponents[id]
         if (!rowComponent) return
@@ -203,12 +213,12 @@ export default {
           rowComponent.translateY = dragOffsetY
           return
         }
-        if (draggingUp) {
+        if (direction === 'up') {
           rowComponent.translateY = (i < indexHovering || i >= indexOriginal)
             ? 0
             : rowHeight
         }
-        if (draggingDown) {
+        if (direction === 'down') {
           rowComponent.translateY = (i > indexHovering - 1 || i < indexOriginal)
             ? 0
             : -rowHeight
