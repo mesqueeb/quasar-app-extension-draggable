@@ -39,6 +39,13 @@
 <style lang="stylus" scoped>
 
 bs = 0 1px 8px rgba(0,0,0,0.2), 0 3px 4px rgba(0,0,0,0.14), 0 3px 3px -2px rgba(0,0,0,0.12) !important
+reset-button()
+  margin 0
+  padding 0 .25rem
+  background none
+  border none
+  &:focus
+    outline 0
 
 shadow-3()
   -webkit-box-shadow bs
@@ -49,15 +56,11 @@ shadow-3()
   flex 1
   display flex
   align-items center
-  padding 0 .25rem
-  cursor initial
   position relative
   z-index 2
   transition transform 0ms
   &:not(.ext-draggable-row--being-dragged)
     transition transform 150ms
-  &:focus
-    outline 0
   > *:not(.ext-draggable-row__selection-indicator)
     z-index 2
     height 100%
