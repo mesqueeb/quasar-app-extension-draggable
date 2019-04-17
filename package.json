@@ -3,10 +3,17 @@
   "version": "0.0.1-beta.2",
   "description": "A Quasar extension that makes elements draggable and movable with keyboard.",
   "author": "Luca Ban - Mesqueeb",
+  "license": "MIT",
   "main": "src/index.js",
   "scripts": {
     "test": "echo \"No test specified\" && exit 0"
   },
+  "bugs": "https://github.com/mesqueeb/quasar-app-extension-draggable/issues",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mesqueeb/quasar-app-extension-draggable.git"
+  },
+  "homepage": "https://github.com/mesqueeb/quasar-app-extension-draggable",
   "engines": {
     "node": ">= 8.9.0",
     "npm": ">= 5.6.0",

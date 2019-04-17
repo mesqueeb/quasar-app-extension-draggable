@@ -91,8 +91,14 @@ shadow-3()
 </style>
 
 <script>
+import { TouchPan, TouchHold } from 'quasar'
+
 export default {
   name: 'QDraggableRow',
+  directives: {
+    TouchPan,
+    TouchHold
+  },
   props: {
     holdToSelect: Boolean,
     value: Number,
