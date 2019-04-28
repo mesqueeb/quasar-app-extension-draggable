@@ -32,7 +32,6 @@ export default {
   name: 'QDraggableRows',
   props: {
     value: Array,
-    depthMap: Object,
   },
   provide () {
     return { $wrapper: this } // Be careful how you name this to not overlap with Vue.js!!
@@ -46,13 +45,22 @@ export default {
     }
   },
   computed: {
+    rowOrder () { return this.value },
+    rowDepths () {
+      return this.rows.reduce((carry, row) => {
+        const id = row.id
+        if (!id) return carry
+        carry[id] = row.value
+        return carry
+      }, {})
+    },
     baseDepth () {
-      if (!this.depthMap) return 0
-      const depthArray = Object.values(this.depthMap)
+      if (!this.rowDepths) return 0
+      const depthArray = Object.values(this.rowDepths)
       return Math.min(...depthArray)
     },
     rowElMap () {
-      const rowElMap = this.rows.reduce((carry, row) => {
+      return this.rows.reduce((carry, row) => {
         if (!row) return carry
         const top = row.elOffsetTop
         const height = row.elHeight
@@ -61,17 +69,11 @@ export default {
         carry[row.id] = {id: row.id, top, bottom, middle, height}
         return carry
       }, {})
-      return rowElMap
     },
     rowElMapOrdered () {
       const rowElArray = Object.values(this.rowElMap)
       rowElArray.sort(sortBy('top', 'asc'))
       return rowElArray
-    },
-    rowOrder () { return this.value },
-    rowDepths () {
-      if (!this.depthMap) return this.rowOrder.reduce(id => { return {[id]: 0} })
-      return this.depthMap
     },
   },
   methods: {
@@ -168,9 +170,10 @@ export default {
     adjustDepthsAfterMove (id) {
       const depth = this.rowDepths[id]
       const prevId = this.rowComponents[id].prevIdShown
+      const topRow = prevId === undefined
       const prevDepth = this.rowDepths[prevId]
-      if (depth > prevDepth + 1) {
-        const newDepth = prevDepth + 1
+      if (topRow || depth > prevDepth + 1) {
+        const newDepth = (topRow) ? this.baseDepth : prevDepth + 1
         const depthChange = newDepth - depth
         this.setDepth(id, newDepth)
         this.reflectDepthChangeToChildren(id, depthChange)

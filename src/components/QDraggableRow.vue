@@ -8,7 +8,7 @@
     }]"
     @click.stop.prevent="tapped"
     v-touch-hold:200.mouse.stop.prevent="held"
-    v-touch-pan.vertical.prevent.mouse="handlePan"
+    v-touch-pan.vertical.mightPrevent.mouse.mouseMightPrevent="handlePan"
     @keydown.up.exact.stop.prevent="rows.selectPrev(id)"
     @keydown.down.exact.stop.prevent="rows.selectNext(id)"
     @keydown.up.alt.exact.stop.prevent="rows.moveUp(id)"
@@ -103,9 +103,12 @@ export default {
     TouchHold
   },
   props: {
-    holdToSelect: Boolean,
     value: Number,
-    id: String,
+    id: {
+      type: String,
+      required: true
+    },
+    holdToSelect: Boolean,
     selectedStyle: Object,
     hoverStyle: Object,
   },
@@ -117,19 +120,9 @@ export default {
     this.$wrapper.mountRow(this)
   },
   mounted () {
-    function start (_) {
-      _.preventDefault()
-      console.log('s', _)
-    }
-    function stop (_) {
-      _.preventDefault()
-      console.log('e', _)
-    }
-    // this.$el.addEventListener('mousedown', _ => start(_))
-    // this.$el.addEventListener('click', _ => stop(_))
-    // this.$el.addEventListener('touchstart', _ => start(_))
-    // this.$el.addEventListener('touchend', _ => stop(_))
     this.rows.$on('select-id', id => { this.selectIdEvent(id) })
+    this.$el.addEventListener('mouseup', this.onMouseup)
+    this.$el.addEventListener('touchend', this.onMouseup)
   },
   data () {
     return {
@@ -219,21 +212,6 @@ export default {
     },
   },
   methods: {
-    held (details) {
-      if (!this.holdToSelect) return this.$emit('held', this.selected)
-      this.select()
-      this.$emit('held', this.selected)
-    },
-    heldFor400 () {
-      if (!this.selected) return
-      const rowChildren = this.childrenIds || []
-      const draggingIds = [this.id, ...rowChildren]
-      draggingIds.forEach(id => {
-        const vueComp = this.rows.rowComponents[id]
-        if (!vueComp) return
-        vueComp.beingDragged = true
-      })
-    },
     tapped () {
       if (this.selected) return this.unselectAll()
       if (this.selectedId) return this.select()
@@ -284,15 +262,46 @@ export default {
       await this.rows.reflectDepthChangeToChildren(this.id, -1)
       this.rows.selectChildren(this.id)
     },
-    onBlur () {
+    onBlur (event) {
       setTimeout(_ => {
         if (document.activeElement.nodeName !== 'BODY') return
         this.unselectAll()
       }, 100)
     },
+    held (details) {
+      this.startDragHover()
+      if (!this.holdToSelect) return this.$emit('held', this.selected)
+      this.select()
+      this.$emit('held', this.selected)
+    },
+    startDragHover () {
+      if (!this.selected) return
+      const rowChildren = this.childrenIds || []
+      const draggingIds = [this.id, ...rowChildren]
+      draggingIds.forEach(id => {
+        const vueComp = this.rows.rowComponents[id]
+        if (!vueComp) return
+        vueComp.beingDragged = true
+        vueComp.translateY = -2
+      })
+    },
+    stopDragHover () {
+      const rowChildren = this.childrenIds || []
+      const draggingIds = [this.id, ...rowChildren]
+      draggingIds.forEach(id => {
+        const vueComp = this.rows.rowComponents[id]
+        if (!vueComp) return
+        vueComp.beingDragged = false
+        vueComp.translateY = 0
+      })
+    },
+    onMouseup (event) {
+      this.stopDragHover()
+    },
     handlePan (details) {
       if (!this.selected) return
-      const { position, isFinal, offset, direction } = details
+      const { position, isFinal, offset, direction, evt } = details
+      evt.preventDefault()
       const cursorPosition = position.top
       const dragOffsetY = offset.y
       this.rows.draggingRow(
