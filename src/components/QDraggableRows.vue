@@ -172,13 +172,12 @@ export default {
       })
     },
     draggingAboveRow (cursorPosition, direction, draggingIds) {
-      const windowScrollY = getScrollPosition(window)
       const below = this.rowElMapOrdered
         .find(element => {
           if (draggingIds.includes(element.id)) return false
           return (direction === 'up')
-            ? (element.bottom - windowScrollY > cursorPosition)
-            : (element.top - windowScrollY > cursorPosition)
+            ? (element.bottom > cursorPosition)
+            : (element.top > cursorPosition)
         })
       const idBelow = below ? below.id : '__end__'
       return idBelow
@@ -205,7 +204,6 @@ export default {
       const indexHovering = (hoveringAbove === '__end__')
         ? this.rowOrder.length
         : this.rowOrder.indexOf(hoveringAbove)
-      // console.log('hoveringAbove →', hoveringAbove, 'indexHovering → ', indexHovering, 'indexOriginal → ', indexOriginal)
       this.rowOrder.forEach((id, i) => {
         const rowComponent = this.rowComponents[id]
         if (!rowComponent) return
