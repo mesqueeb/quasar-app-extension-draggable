@@ -41,7 +41,7 @@
 bs = 0 1px 8px rgba(0,0,0,0.2), 0 3px 4px rgba(0,0,0,0.14), 0 3px 3px -2px rgba(0,0,0,0.12) !important
 reset-button()
   margin 0
-  padding 0 .25rem
+  padding 0
   background none
   border none
   &:focus
@@ -130,10 +130,6 @@ export default {
     // this.$el.addEventListener('touchstart', _ => start(_))
     // this.$el.addEventListener('touchend', _ => stop(_))
     this.rows.$on('select-id', id => { this.selectIdEvent(id) })
-    this.rows.$on('set-depth', ({id, depth}) => {
-      if (this.id !== id) return
-      this.setDepth(depth)
-    })
   },
   data () {
     return {
@@ -268,16 +264,25 @@ export default {
     },
     setDepth (depth) {
       // set the depth (value prop) via input event (for v-model)
-      this.$emit('input', depth)
+      return new Promise((resolve, reject) => {
+        this.$emit('input', depth)
+        this.$nextTick(resolve)
+      })
     },
-    incrementDepth () {
-      const prevIdDepth = this.rows.rowDepths[this.prevIdShown]
+    async incrementDepth () {
+      const prevId = this.prevIdShown
+      if (!prevId) return
+      const prevIdDepth = this.rows.rowDepths[prevId]
       if (this.depth >= prevIdDepth + 1) return
       this.setDepth(this.depth + 1)
+      await this.rows.reflectDepthChangeToChildren(this.id, 1)
+      this.rows.selectChildren(this.id)
     },
-    decrementDepth () {
+    async decrementDepth () {
       if (this.depth === this.baseDepth) return
       this.setDepth(this.depth - 1)
+      await this.rows.reflectDepthChangeToChildren(this.id, -1)
+      this.rows.selectChildren(this.id)
     },
     onBlur () {
       setTimeout(_ => {

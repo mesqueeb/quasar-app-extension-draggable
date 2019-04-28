@@ -75,6 +75,12 @@ export default {
     },
   },
   methods: {
+    setNewOrder (newOrder) {
+      return new Promise((resolve, reject) => {
+        this.$emit('input', newOrder)
+        this.$nextTick(resolve)
+      })
+    },
     mountRow (rowComponent) {
       this.rows.push(rowComponent)
       this.rowComponents[rowComponent.id] = rowComponent
@@ -90,7 +96,9 @@ export default {
       this.$emit('select-id', id)
     },
     setDepth (id, depth) {
-      this.$emit('set-depth', {id, depth})
+      const row = this.rowComponents[id]
+      if (!row) return
+      return row.setDepth(depth)
     },
     selectPrev (currentId) {
       const index = this.value.indexOf(currentId)
@@ -141,7 +149,7 @@ export default {
         : this.rowComponents[nextIdLastChildIdOrSelf].nextIdShown
       this.moveIdAndChildrenToPlaceOfTargetId(id, targetId)
     },
-    moveIdAndChildrenToPlaceOfTargetId (id, targetId) {
+    async moveIdAndChildrenToPlaceOfTargetId (id, targetId) {
       const childrenIds = this.rowComponents[id].childrenIds
       const all = [id, ...childrenIds]
       const newOrderClean = this.rowOrder.filter(_id => !all.includes(_id))
@@ -153,23 +161,27 @@ export default {
         ...all,
         ...newOrderClean.slice(index)
       ]
-      this.$emit('input', newOrder)
-      setTimeout(_ => {
-        this.adjustDepthsAfterMove(id)
-        this.selectId(id)
-      }, 1)
+      await this.setNewOrder(newOrder)
+      this.adjustDepthsAfterMove(id)
+      this.selectId(id)
     },
     adjustDepthsAfterMove (id) {
+      const depth = this.rowDepths[id]
+      const prevId = this.rowComponents[id].prevIdShown
+      const prevDepth = this.rowDepths[prevId]
+      if (depth > prevDepth + 1) {
+        const newDepth = prevDepth + 1
+        const depthChange = newDepth - depth
+        this.setDepth(id, newDepth)
+        this.reflectDepthChangeToChildren(id, depthChange)
+      }
+    },
+    async reflectDepthChangeToChildren (id, depthChange) {
       const childrenIds = this.rowComponents[id].childrenIds
-      const all = [id, ...childrenIds]
-      all.forEach(_id => {
+      await Promise.all(childrenIds.map(_id => {
         const depth = this.rowDepths[_id]
-        const prevId = this.rowComponents[_id].prevIdShown
-        const prevDepth = this.rowDepths[prevId]
-        if (depth > prevDepth + 1) {
-          this.setDepth(_id, prevDepth + 1)
-        }
-      })
+        return this.setDepth(_id, depth + depthChange)
+      }))
     },
     draggingAboveRow (cursorPosition, direction, draggingIds) {
       const below = this.rowElMapOrdered
