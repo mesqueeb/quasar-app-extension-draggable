@@ -3,7 +3,7 @@
     name="flip-list"
     :class="[
       'ext-draggable-rows', {
-      'ext-draggable-rows--has-selection': selectedId,
+      'ext-draggable-rows--has-selection': hasSelection,
       'ext-draggable-rows--dragging': dragging,
     }]"
     tag="div"
@@ -38,7 +38,6 @@ export default {
   },
   data () {
     return {
-      selectedId: null,
       rows: [], // child vue components array
       rowComponents: {}, // child vue components by ID
       dragging: false
@@ -75,6 +74,15 @@ export default {
       rowElArray.sort(sortBy('top', 'asc'))
       return rowElArray
     },
+    selectedIds () {
+      return this.rows.reduce((carry, row) => {
+        if (row.selected) carry.push(row.id)
+        return carry
+      }, [])
+    },
+    hasSelection () {
+      return this.selectedIds.length
+    },
   },
   methods: {
     setNewOrder (newOrder) {
@@ -93,9 +101,10 @@ export default {
         this.rowComponents[rowComponent.id] = null
       })
     },
-    selectId (id) {
-      this.selectedId = id
-      this.$emit('select-id', id)
+    selectId (id, event) {
+      this.rows.forEach(row => {
+        row.selectIdEvent(id, event)
+      })
     },
     setDepth (id, depth) {
       const row = this.rowComponents[id]
@@ -126,6 +135,9 @@ export default {
       rowComponent.childrenIds.forEach(childId => {
         this.rowComponents[childId].selectedChild = true
       })
+    },
+    calcElPosAll () {
+      this.rows.forEach(row => row.calcElPos())
     },
     moveUp (id) {
       const targetId = this.rowComponents[id].prevIdSameDepthOrParent

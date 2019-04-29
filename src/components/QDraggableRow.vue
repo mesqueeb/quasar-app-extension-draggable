@@ -120,7 +120,6 @@ export default {
     this.$wrapper.mountRow(this)
   },
   mounted () {
-    this.rows.$on('select-id', id => { this.selectIdEvent(id) })
     this.$el.addEventListener('mouseup', this.onMouseup)
     this.$el.addEventListener('touchend', this.onMouseup)
   },
@@ -140,7 +139,6 @@ export default {
     rowOrder () { return this.rows.rowOrder },
     rowDepths () { return this.rows.rowDepths },
     baseDepth () { return this.rows.baseDepth },
-    selectedId () { return this.rows.selectedId },
     isLastItem () {
       if (!this.rowOrder.length) return true
       return this.rowOrder.slice(-1)[0] === this.id
@@ -156,7 +154,7 @@ export default {
       return this.rowOrder[index + 1]
     },
     prevIdSameDepthOrParent () {
-      const maxDepth = this.rowDepths[this.id]
+      const maxDepth = this.depth
       let prevId = this.prevIdShown
       if (!prevId) return
       let prevDepth = this.rowDepths[prevId]
@@ -170,7 +168,7 @@ export default {
       return prevId
     },
     childrenIds () {
-      const startDepth = this.rowDepths[this.id]
+      const startDepth = this.depth
       let index = this.rowOrder.indexOf(this.id)
       let _continue = true
       const childrenIds = []
@@ -212,33 +210,32 @@ export default {
     },
   },
   methods: {
-    tapped () {
-      if (this.selected) return this.unselectAll()
-      if (this.selectedId) return this.select()
+    tapped (event) {
+      if (this.selected) return this.rows.unselectAll()
+      if (this.rows.hasSelection) return this.rows.selectId(this.id, event)
       if (this.holdToSelect) return this.$emit('click')
-      this.select()
+      this.rows.selectId(this.id, event)
     },
-    unselectAll () {
-      this.rows.unselectAll()
-    },
-    unselect () {
-      this.selected = false
-      this.$el.blur()
-    },
-    select () {
-      this.rows.selectId(this.id)
-    },
-    selectIdEvent (selectedId) {
-      this.elHeight = this.$el.offsetHeight
-      const { top } = this.$el.getBoundingClientRect()
-      this.elOffsetTop = top
+    selectIdEvent (selectedId, event = {}) {
+      const { metaKey } = event
+      this.calcElPos()
       if (this.id === selectedId) {
         this.selected = true
         this.rows.selectChildren(this.id)
         this.$el.focus()
         return
       }
+      if (metaKey) return
       this.unselect()
+    },
+    unselect () {
+      this.selected = false
+      this.$el.blur()
+    },
+    calcElPos () {
+      this.elHeight = this.$el.offsetHeight
+      const { top } = this.$el.getBoundingClientRect()
+      this.elOffsetTop = top
     },
     setDepth (depth) {
       // set the depth (value prop) via input event (for v-model)
@@ -265,13 +262,13 @@ export default {
     onBlur (event) {
       setTimeout(_ => {
         if (document.activeElement.nodeName !== 'BODY') return
-        this.unselectAll()
+        this.rows.unselectAll()
       }, 100)
     },
     held (details) {
       this.startDragHover()
       if (!this.holdToSelect) return this.$emit('held', this.selected)
-      this.select()
+      this.rows.selectId(this.id)
       this.$emit('held', this.selected)
     },
     startDragHover () {
@@ -300,7 +297,8 @@ export default {
     },
     handlePan (details) {
       if (!this.selected) return
-      const { position, isFinal, offset, direction, evt } = details
+      const { position, isFinal, isFirst, offset, direction, evt } = details
+      if (isFirst) this.rows.calcElPosAll()
       evt.preventDefault()
       const cursorPosition = position.top
       const dragOffsetY = offset.y
