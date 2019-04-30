@@ -9,8 +9,8 @@
     @click.stop.prevent="tapped"
     v-touch-hold:200.mouse.stop.prevent="held"
     v-touch-pan.vertical.mightPrevent.mouse.mouseMightPrevent="handlePan"
-    @keydown.up.exact.stop.prevent="rows.selectPrev(id)"
-    @keydown.down.exact.stop.prevent="rows.selectNext(id)"
+    @keydown.up.stop.prevent="e => rows.selectPrev(id, e)"
+    @keydown.down.stop.prevent="e => rows.selectNext(id, e)"
     @keydown.up.alt.exact.stop.prevent="rows.moveUp(id)"
     @keydown.up.meta.exact.stop.prevent="rows.moveUp(id)"
     @keydown.down.alt.exact.stop.prevent="rows.moveDown(id)"
@@ -139,17 +139,18 @@ export default {
     rowOrder () { return this.rows.rowOrder },
     rowDepths () { return this.rows.rowDepths },
     baseDepth () { return this.rows.baseDepth },
+    index () { return this.rowOrder.indexOf(this.id) },
     isLastItem () {
       if (!this.rowOrder.length) return true
       return this.rowOrder.slice(-1)[0] === this.id
     },
     prevIdShown () {
-      const index = this.rowOrder.indexOf(this.id)
+      const index = this.index
       if (index === 0) return
       return this.rowOrder[index - 1]
     },
     nextIdShown () {
-      const index = this.rowOrder.indexOf(this.id)
+      const index = this.index
       if (index === this.rowOrder.length - 1) return
       return this.rowOrder[index + 1]
     },
@@ -167,9 +168,32 @@ export default {
       }
       return prevId
     },
+    parentId () {
+      const startDepth = this.depth
+      let index = this.index
+      if (index < 1) return
+      let parentId
+      while (!parentId && index > 0) {
+        index--
+        const prevId = this.rowOrder[index]
+        const prevDepth = this.rowDepths[prevId]
+        const oneLvlHigher = (prevDepth === startDepth - 1)
+        if (oneLvlHigher) parentId = prevId
+      }
+      return parentId
+    },
+    allParentIds () {
+      const parentIds = []
+      let parentId = this.parentId
+      while (parentId) {
+        parentIds.unshift(parentId)
+        parentId = this.rows.rowComponents[parentId].parentId
+      }
+      return parentIds
+    },
     childrenIds () {
       const startDepth = this.depth
-      let index = this.rowOrder.indexOf(this.id)
+      let index = this.index
       let _continue = true
       const childrenIds = []
       while (_continue) {
@@ -211,25 +235,29 @@ export default {
   },
   methods: {
     tapped (event) {
-      if (this.selected) return this.rows.unselectAll()
+      // select if there's a selection
       if (this.rows.hasSelection) return this.rows.selectId(this.id, event)
+      // do not select if `holdToSelect` and there's no selection
       if (this.holdToSelect) return this.$emit('click')
+      // select if no `holdToSelect`
       this.rows.selectId(this.id, event)
     },
-    selectIdEvent (selectedId, event = {}) {
-      const { metaKey } = event
+    select () {
+      // calc row heights to show selection indicator properly
       this.calcElPos()
-      if (this.id === selectedId) {
-        this.selected = true
-        this.rows.selectChildren(this.id)
-        this.$el.focus()
-        return
-      }
-      if (metaKey) return
-      this.unselect()
+      this.selected = true
+      this.selectedChild = false
+      this.rows.selectChildren(this.id)
+      this.$el.focus()
+    },
+    selectAsChild () {
+      this.calcElPos()
+      this.selectedChild = true
+      this.selected = false
     },
     unselect () {
       this.selected = false
+      this.selectedChild = false
       this.$el.blur()
     },
     calcElPos () {

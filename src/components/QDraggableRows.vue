@@ -80,17 +80,17 @@ export default {
         return carry
       }, [])
     },
+    selectedIdsPlusChildren () {
+      return this.rows.reduce((carry, row) => {
+        if (row.selected || row.selectedChild) carry.push(row.id)
+        return carry
+      }, [])
+    },
     hasSelection () {
       return this.selectedIds.length
     },
   },
   methods: {
-    setNewOrder (newOrder) {
-      return new Promise((resolve, reject) => {
-        this.$emit('input', newOrder)
-        this.$nextTick(resolve)
-      })
-    },
     mountRow (rowComponent) {
       this.rows.push(rowComponent)
       this.rowComponents[rowComponent.id] = rowComponent
@@ -101,9 +101,10 @@ export default {
         this.rowComponents[rowComponent.id] = null
       })
     },
-    selectId (id, event) {
-      this.rows.forEach(row => {
-        row.selectIdEvent(id, event)
+    setNewOrder (newOrder) {
+      return new Promise((resolve, reject) => {
+        this.$emit('input', newOrder)
+        this.$nextTick(resolve)
       })
     },
     setDepth (id, depth) {
@@ -111,30 +112,57 @@ export default {
       if (!row) return
       return row.setDepth(depth)
     },
-    selectPrev (currentId) {
-      const index = this.value.indexOf(currentId)
-      if (index === 0) return
-      const newId = this.value[index - 1]
-      this.selectId(newId)
+    selectId (id, event = {}) {
+      const { metaKey, shiftKey } = event
+      // META
+      if (metaKey) return this.selectAdditional(id)
+      // SHIFT
+      if (shiftKey) return this.selectUntil(id)
+      // NONE
+      const row = this.rowComponents[id]
+      if (!row) return
+      this.unselectAll()
+      row.select()
     },
-    selectNext (currentId) {
-      const index = this.value.indexOf(currentId)
-      if (index === this.value.length - 1) return
-      const newId = this.value[index + 1]
-      this.selectId(newId)
-    },
-    unselectAll () {
-      this.selectId(null)
+    unselectAll (but) {
+      this.rows.forEach(row => {
+        if (row.id === but) return
+        row.unselect()
+      })
     },
     selectChildren (id) {
-      const rowComponent = this.rowComponents[id]
-      if (!rowComponent) return
-      this.rows.forEach(rowComp => {
-        rowComp.selectedChild = false
+      const row = this.rowComponents[id]
+      if (!row) return
+      row.childrenIds.forEach(childId => {
+        this.rowComponents[childId].selectAsChild()
       })
-      rowComponent.childrenIds.forEach(childId => {
-        this.rowComponents[childId].selectedChild = true
-      })
+    },
+    selectAdditional (id) {
+      const row = this.rowComponents[id]
+      if (!row) return
+      if (this.selectedIds.includes(id)) {
+        return row.unselect()
+      }
+      // selection is a child of an already selected id
+      if (this.selectedIdsPlusChildren.includes(id)) {
+        return
+      }
+      return row.select()
+    },
+    selectUntil (id) {
+
+    },
+    selectPrev (currentId, event = {}) {
+      const row = this.rowComponents[currentId]
+      if (!row) return
+      const newId = row.prevIdShown
+      this.selectId(newId, event)
+    },
+    selectNext (currentId, event = {}) {
+      const row = this.rowComponents[currentId]
+      if (!row) return
+      const newId = row.nextIdShown
+      this.selectId(newId, event)
     },
     calcElPosAll () {
       this.rows.forEach(row => row.calcElPos())
