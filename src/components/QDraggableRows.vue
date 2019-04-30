@@ -231,6 +231,12 @@ export default {
     calcElPosAll () {
       this.rows.forEach(row => row.calcElPos())
     },
+    indentSelection () {
+      this.selectedIds.forEach(id => this.rowComponents[id].incrementDepth())
+    },
+    unindentSelection () {
+      this.selectedIds.forEach(id => this.rowComponents[id].decrementDepth())
+    },
     moveUpSelection () {
       this.selectedIdsAsc.forEach(id => this.moveUp(id))
     },
@@ -301,11 +307,10 @@ export default {
       return idBelow
     },
     draggingRow (rowId, cursorPosition, direction, dragOffsetY, isFinal) {
-      const rowComponent = this.rowComponents[rowId]
-      const rowChildren = rowComponent.childrenIds || []
+      const draggingRow = this.rowComponents[rowId]
+      const rowChildren = draggingRow.childrenIds || []
       const draggingIds = [rowId, ...rowChildren]
-      const lastChildIdOrSelf = rowComponent.lastChildIdOrSelf
-      const rowHeight = rowComponent.rowHeightTotal
+      const lastChildIdOrSelf = draggingRow.lastChildIdOrSelf
       const outerId = (direction === 'up') ? rowId : lastChildIdOrSelf
       const differenceIdOuterId = this.rowElMap[outerId].top - this.rowElMap[rowId].top
       const cursorPositionAdjusted = cursorPosition + differenceIdOuterId
@@ -313,43 +318,46 @@ export default {
       if (isFinal) {
         return this.dropRow(rowId, hoveringAbove)
       }
-      if (!isFinal) {
-        draggingIds.forEach(id => {
-          this.rowComponents[id].beingDragged = true
-        })
-      }
+      const otherSelectedIds = this.selectedIdsPlusChildren
+        .filter(id => !draggingIds.includes(id))
+      const rowHeight = draggingRow.rowHeightTotal
       const indexOriginal = this.rowOrder.indexOf(outerId)
       const indexHovering = (hoveringAbove === '__end__')
         ? this.rowOrder.length
         : this.rowOrder.indexOf(hoveringAbove)
       this.rowOrder.forEach((id, i) => {
-        const rowComponent = this.rowComponents[id]
-        if (!rowComponent) return
+        const row = this.rowComponents[id]
+        if (!row) return
         if (draggingIds.includes(id)) {
-          rowComponent.translateY = dragOffsetY
+          row.beingDragged = true
+          row.translateY = dragOffsetY
           return
         }
+        if (otherSelectedIds.includes(id)) {
+          row.beingDraggedOther = true
+        }
         if (direction === 'up') {
-          rowComponent.translateY = (i < indexHovering || i >= indexOriginal)
+          row.translateY = (i < indexHovering || i >= indexOriginal)
             ? 0
             : rowHeight
         }
         if (direction === 'down') {
-          rowComponent.translateY = (i > indexHovering - 1 || i < indexOriginal)
+          row.translateY = (i > indexHovering - 1 || i < indexOriginal)
             ? 0
             : -rowHeight
         }
       })
     },
     resetHoverPositions () {
-      this.rows.forEach(rowComponent => {
-        rowComponent.translateY = 0
-        rowComponent.beingDragged = false
+      this.rows.forEach(row => {
+        row.translateY = 0
+        row.beingDragged = false
+        row.beingDraggedOther = false
       })
     },
     dropRow (rowId, rowIdBelow) {
-      this.resetHoverPositions()
       this.moveIdAndChildrenToPlaceOfTargetId(rowId, rowIdBelow)
+      this.resetHoverPositions()
     },
   }
 }

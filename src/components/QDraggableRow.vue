@@ -3,6 +3,7 @@
     :class="[
       'ext-draggable-row', {
       'ext-draggable-row--being-dragged': beingDragged,
+      'ext-draggable-row--being-dragged-other': beingDraggedOther,
       'ext-draggable-row--selected': selected,
       'ext-draggable-row--selected-child': selectedChild,
     }]"
@@ -13,8 +14,8 @@
     @keydown.down.stop.prevent="e => rows.selectNext(id, e)"
     @keydown.up.alt.exact.stop.prevent="rows.moveUpSelection"
     @keydown.down.alt.exact.stop.prevent="rows.moveDownSelection"
-    @keydown.tab.exact.stop.prevent="incrementDepth"
-    @keydown.shift.tab.exact.stop.prevent="decrementDepth"
+    @keydown.tab.exact.stop.prevent="rows.indentSelection"
+    @keydown.shift.tab.exact.stop.prevent="rows.unindentSelection"
     @keydown.esc.exact.stop.prevent="unselectAll"
     @blur="onBlur"
     :style="style"
@@ -89,6 +90,8 @@ shadow-3()
     .ext-draggable-row__selection-indicator
       > *
         shadow-3()
+  &--being-dragged-other
+    opacity 0.5
 
 </style>
 
@@ -127,8 +130,9 @@ export default {
       depth: this.value,
       selected: false,
       selectedChild: false,
-      translateY: 0,
       beingDragged: false,
+      beingDraggedOther: false,
+      translateY: 0,
       elHeight: 0, // reset on select every time
       elOffsetTop: 0, // reset on select every time
     }
