@@ -11,10 +11,8 @@
     v-touch-pan.vertical.mightPrevent.mouse.mouseMightPrevent="handlePan"
     @keydown.up.stop.prevent="e => rows.selectPrev(id, e)"
     @keydown.down.stop.prevent="e => rows.selectNext(id, e)"
-    @keydown.up.alt.exact.stop.prevent="rows.moveUp(id)"
-    @keydown.up.meta.exact.stop.prevent="rows.moveUp(id)"
-    @keydown.down.alt.exact.stop.prevent="rows.moveDown(id)"
-    @keydown.down.meta.exact.stop.prevent="rows.moveDown(id)"
+    @keydown.up.alt.exact.stop.prevent="rows.moveUpSelection"
+    @keydown.down.alt.exact.stop.prevent="rows.moveDownSelection"
     @keydown.tab.exact.stop.prevent="incrementDepth"
     @keydown.shift.tab.exact.stop.prevent="decrementDepth"
     @keydown.esc.exact.stop.prevent="unselectAll"
@@ -126,6 +124,7 @@ export default {
   },
   data () {
     return {
+      depth: this.value,
       selected: false,
       selectedChild: false,
       translateY: 0,
@@ -135,7 +134,6 @@ export default {
     }
   },
   computed: {
-    depth () { return this.value },
     rows () { return this.$wrapper },
     rowOrder () { return this.rows.rowOrder },
     rowDepths () { return this.rows.rowDepths },
@@ -267,26 +265,34 @@ export default {
       const { top } = this.$el.getBoundingClientRect()
       this.elOffsetTop = top
     },
-    setDepth (depth) {
+    updateDepth (depthChange) {
+      const childrenIds = this.childrenIds
+      const idAndChildren = [this.id, ...childrenIds]
+      idAndChildren.forEach(id => {
+        const row = this.rows.rowComponents[id]
+        if (!row) return
+        row.setAndEmitDepth(row.depth + depthChange)
+      })
+    },
+    setAndEmitDepth (depth) {
+      this.depth = depth
       // set the depth (value prop) via input event (for v-model)
       return new Promise((resolve, reject) => {
         this.$emit('input', depth)
         this.$nextTick(resolve)
       })
     },
-    async incrementDepth () {
+    incrementDepth () {
       const prevId = this.prevIdShown
       if (!prevId) return
       const prevIdDepth = this.rows.rowDepths[prevId]
       if (this.depth >= prevIdDepth + 1) return
-      this.setDepth(this.depth + 1)
-      await this.rows.reflectDepthChangeToChildren(this.id, 1)
+      this.updateDepth(1)
       this.rows.selectChildren(this.id)
     },
-    async decrementDepth () {
+    decrementDepth () {
       if (this.depth === this.baseDepth) return
-      this.setDepth(this.depth - 1)
-      await this.rows.reflectDepthChangeToChildren(this.id, -1)
+      this.updateDepth(-1)
       this.rows.selectChildren(this.id)
     },
     onBlur (event) {

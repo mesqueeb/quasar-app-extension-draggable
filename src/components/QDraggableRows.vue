@@ -38,6 +38,7 @@ export default {
   },
   data () {
     return {
+      rowOrder: this.value,
       rows: [], // child vue components array
       rowComponents: {}, // child vue components by ID
       lastSelected: null,
@@ -45,7 +46,6 @@ export default {
     }
   },
   computed: {
-    rowOrder () { return this.value },
     rowDepths () {
       return this.rows.reduce((carry, row) => {
         const id = row.id
@@ -87,6 +87,20 @@ export default {
         return carry
       }, [])
     },
+    selectedIdsAsc () {
+      const idsIndexes = this.selectedIds.map(id => {
+        return {id, index: this.rowComponents[id].index}
+      })
+      idsIndexes.sort(sortBy('index', 'asc'))
+      return idsIndexes.map(obj => obj.id)
+    },
+    selectedIdsDesc () {
+      const idsIndexes = this.selectedIds.map(id => {
+        return {id, index: this.rowComponents[id].index}
+      })
+      idsIndexes.sort(sortBy('index', 'desc'))
+      return idsIndexes.map(obj => obj.id)
+    },
     hasSelection () {
       return this.selectedIds.length
     },
@@ -103,15 +117,11 @@ export default {
       })
     },
     setNewOrder (newOrder) {
+      this.rowOrder = newOrder
       return new Promise((resolve, reject) => {
         this.$emit('input', newOrder)
         this.$nextTick(resolve)
       })
-    },
-    setDepth (id, depth) {
-      const row = this.rowComponents[id]
-      if (!row) return
-      return row.setDepth(depth)
     },
     selectId (id, event = {}) {
       const { metaKey, shiftKey } = event
@@ -151,6 +161,11 @@ export default {
       if (this.selectedIdsPlusChildren.includes(id)) return
       return row.select()
     },
+    focusRow (id) {
+      const row = this.rowComponents[id]
+      if (!row || !row.$el) return
+      row.$el.focus()
+    },
     focusRowOtherThan (idThatWillBeUnselected) {
       let lastId = this.lastSelected
       if (lastId === idThatWillBeUnselected) {
@@ -159,7 +174,7 @@ export default {
           .slice(-1)[0]
       }
       if (!lastId) return
-      this.rowComponents[lastId].$el.focus()
+      this.focusRow(lastId)
     },
     selectUntil (id) {
       // remove text selection
@@ -197,14 +212,18 @@ export default {
       // select each item from the idsToSelect array
       idsToSelect.forEach(_id => this.rowComponents[_id].select())
     },
-    selectPrev (currentId, event = {}) {
-      const row = this.rowComponents[currentId]
+    selectPrev (focussedId, event = {}) {
+      const { altKey, metaKey } = event
+      if (altKey || metaKey) return
+      const row = this.rowComponents[focussedId]
       if (!row) return
       const newId = row.prevIdShown
       this.selectId(newId, event)
     },
-    selectNext (currentId, event = {}) {
-      const row = this.rowComponents[currentId]
+    selectNext (focussedId, event = {}) {
+      const { altKey, metaKey } = event
+      if (altKey || metaKey) return
+      const row = this.rowComponents[focussedId]
       if (!row) return
       const newId = row.nextIdShown
       this.selectId(newId, event)
@@ -212,10 +231,17 @@ export default {
     calcElPosAll () {
       this.rows.forEach(row => row.calcElPos())
     },
+    moveUpSelection () {
+      this.selectedIdsAsc.forEach(id => this.moveUp(id))
+    },
     moveUp (id) {
       const targetId = this.rowComponents[id].prevIdSameDepthOrParent
       if (!targetId) return
       this.moveIdAndChildrenToPlaceOfTargetId(id, targetId)
+      this.focusRow(id)
+    },
+    moveDownSelection () {
+      this.selectedIdsDesc.forEach(id => this.moveDown(id))
     },
     moveDown (id) {
       const lastChildIdOrSelf = this.rowComponents[id].lastChildIdOrSelf
@@ -235,8 +261,9 @@ export default {
         ? '__end__'
         : this.rowComponents[nextIdLastChildIdOrSelf].nextIdShown
       this.moveIdAndChildrenToPlaceOfTargetId(id, targetId)
+      this.focusRow(id)
     },
-    async moveIdAndChildrenToPlaceOfTargetId (id, targetId) {
+    moveIdAndChildrenToPlaceOfTargetId (id, targetId) {
       const childrenIds = this.rowComponents[id].childrenIds
       const all = [id, ...childrenIds]
       const newOrderClean = this.rowOrder.filter(_id => !all.includes(_id))
@@ -248,7 +275,7 @@ export default {
         ...all,
         ...newOrderClean.slice(index)
       ]
-      await this.setNewOrder(newOrder)
+      this.setNewOrder(newOrder)
       this.adjustDepthsAfterMove(id)
       this.selectId(id)
     },
@@ -260,16 +287,9 @@ export default {
       if (topRow || depth > prevDepth + 1) {
         const newDepth = (topRow) ? this.baseDepth : prevDepth + 1
         const depthChange = newDepth - depth
-        this.setDepth(id, newDepth)
-        this.reflectDepthChangeToChildren(id, depthChange)
+        const row = this.rowComponents[id]
+        row.updateDepth(depthChange)
       }
-    },
-    async reflectDepthChangeToChildren (id, depthChange) {
-      const childrenIds = this.rowComponents[id].childrenIds
-      await Promise.all(childrenIds.map(_id => {
-        const depth = this.rowDepths[_id]
-        return this.setDepth(_id, depth + depthChange)
-      }))
     },
     draggingAboveRow (cursorPosition, direction, draggingIds) {
       const below = this.rowElMapOrdered
