@@ -40,6 +40,7 @@ export default {
     return {
       rows: [], // child vue components array
       rowComponents: {}, // child vue components by ID
+      lastSelected: null,
       dragging: false
     }
   },
@@ -138,19 +139,63 @@ export default {
       })
     },
     selectAdditional (id) {
+      // prerequisites
       const row = this.rowComponents[id]
       if (!row) return
+      // unselect if it was already selected
       if (this.selectedIds.includes(id)) {
+        this.focusRowOtherThan(id)
         return row.unselect()
       }
       // selection is a child of an already selected id
-      if (this.selectedIdsPlusChildren.includes(id)) {
-        return
-      }
+      if (this.selectedIdsPlusChildren.includes(id)) return
       return row.select()
     },
+    focusRowOtherThan (idThatWillBeUnselected) {
+      let lastId = this.lastSelected
+      if (lastId === idThatWillBeUnselected) {
+        lastId = this.selectedIds
+          .filter(_id => _id !== idThatWillBeUnselected)
+          .slice(-1)[0]
+      }
+      if (!lastId) return
+      this.rowComponents[lastId].$el.focus()
+    },
     selectUntil (id) {
-
+      // remove text selection
+      if (typeof window.getSelection === 'function') window.getSelection().removeAllRanges()
+      // prerequisites
+      const row = this.rowComponents[id]
+      const lastId = this.lastSelected
+      const lastRow = this.rowComponents[lastId]
+      if (!row || !lastRow) return
+      // define from where to where to select
+      const fromIndex = lastRow.index
+      if (fromIndex === -1) return
+      const toIndex = row.index
+      if (toIndex === -1 || fromIndex === toIndex) return
+      const selectingDownwards = (fromIndex < toIndex)
+      // adjust selection indexes based on selection direction
+      const {from, to} = (selectingDownwards)
+        ? {from: fromIndex + 1, to: toIndex + 1}
+        : {from: toIndex, to: fromIndex}
+      // get children ids for selection range
+      const rowOrderSlice = this.rowOrder.slice(from, to)
+      // create idsToSelect array with some depth rules
+      let maxDepth = (selectingDownwards)
+        ? this.rowDepths[lastId]
+        : this.rowDepths[id]
+      const idsToSelect = rowOrderSlice.reduce((carry, siblingId) => {
+        // get potential candidate to select
+        const siblingDepth = this.rowDepths[siblingId]
+        if (siblingDepth > maxDepth) return carry
+        maxDepth = siblingDepth
+        // add candidate
+        carry.push(siblingId)
+        return carry
+      }, [])
+      // select each item from the idsToSelect array
+      idsToSelect.forEach(_id => this.rowComponents[_id].select())
     },
     selectPrev (currentId, event = {}) {
       const row = this.rowComponents[currentId]

@@ -20,6 +20,7 @@
     @keydown.esc.exact.stop.prevent="unselectAll"
     @blur="onBlur"
     :style="style"
+    :id="`js-${id}`"
   >
     <div
       v-show="selected"
@@ -248,6 +249,7 @@ export default {
       this.selected = true
       this.selectedChild = false
       this.rows.selectChildren(this.id)
+      this.rows.lastSelected = this.id
       this.$el.focus()
     },
     selectAsChild () {
@@ -288,10 +290,13 @@ export default {
       this.rows.selectChildren(this.id)
     },
     onBlur (event) {
+      // we need to unselectAll in case the selection is blurred
+      // otherwise our keyboard shortcuts stop working
       setTimeout(_ => {
+        // unless if another row is selected
         if (document.activeElement.nodeName !== 'BODY') return
         this.rows.unselectAll()
-      }, 100)
+      }, 200) // same length as `held` trigger
     },
     held (details) {
       this.startDragHover()
