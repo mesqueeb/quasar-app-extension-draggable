@@ -50,7 +50,7 @@ export default {
       return this.rows.reduce((carry, row) => {
         const id = row.id
         if (!id) return carry
-        carry[id] = row.value
+        carry[id] = row.depth
         return carry
       }, {})
     },
@@ -238,7 +238,6 @@ export default {
       const targetId = this.rowComponents[id].prevIdSameDepthOrParent
       if (!targetId) return
       this.moveIdAndChildrenToPlaceOfTargetId(id, targetId)
-      this.focusRow(id)
     },
     moveDownSelection () {
       this.selectedIdsDesc.forEach(id => this.moveDown(id))
@@ -261,7 +260,6 @@ export default {
         ? '__end__'
         : this.rowComponents[nextIdLastChildIdOrSelf].nextIdShown
       this.moveIdAndChildrenToPlaceOfTargetId(id, targetId)
-      this.focusRow(id)
     },
     moveIdAndChildrenToPlaceOfTargetId (id, targetId) {
       const childrenIds = this.rowComponents[id].childrenIds
@@ -277,7 +275,7 @@ export default {
       ]
       this.setNewOrder(newOrder)
       this.adjustDepthsAfterMove(id)
-      this.selectId(id)
+      this.$nextTick(_ => this.focusRow(id))
     },
     adjustDepthsAfterMove (id) {
       const depth = this.rowDepths[id]
