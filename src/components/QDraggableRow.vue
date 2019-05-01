@@ -246,13 +246,14 @@ export default {
       this.rows.selectId(this.id, event)
     },
     select () {
-      // calc row heights to show selection indicator properly
-      this.calcElPos()
       this.selected = true
       this.selectedChild = false
       this.rows.selectChildren(this.id)
       this.rows.lastSelected = this.id
       this.$el.focus()
+      // calc row heights to show selection indicator properly
+      this.$nextTick(this.calcElPos)
+      // nextTick fixes problems when the row changes after select
     },
     selectAsChild () {
       this.calcElPos()
