@@ -267,8 +267,9 @@ export default {
         : this.rowComponents[nextIdLastChildIdOrSelf].nextIdShown
       this.moveIdAndChildrenToPlaceOfTargetId(id, targetId)
     },
-    moveIdAndChildrenToPlaceOfTargetId (id, targetId) {
-      const childrenIds = this.rowComponents[id].childrenIds
+    moveIdAndChildrenToPlaceOfTargetId (id, targetId, depthChange) {
+      const row = this.rowComponents[id]
+      const childrenIds = row.childrenIds
       const all = [id, ...childrenIds]
       const newOrderClean = this.rowOrder.filter(_id => !all.includes(_id))
       const index = (targetId === '__end__')
@@ -280,18 +281,22 @@ export default {
         ...newOrderClean.slice(index)
       ]
       this.setNewOrder(newOrder)
+      if (Number.isInteger(depthChange)) {
+        // pass the childrenIds that was calculated before the newOrder
+        row.updateDepth(depthChange, childrenIds)
+      }
       this.adjustDepthsAfterMove(id)
       this.$nextTick(_ => this.focusRow(id))
     },
     adjustDepthsAfterMove (id) {
       const depth = this.rowDepths[id]
-      const prevId = this.rowComponents[id].prevIdShown
+      const row = this.rowComponents[id]
+      const prevId = row.prevIdShown
       const topRow = prevId === undefined
       const prevDepth = this.rowDepths[prevId]
       if (topRow || depth > prevDepth + 1) {
         const newDepth = (topRow) ? this.baseDepth : prevDepth + 1
         const depthChange = newDepth - depth
-        const row = this.rowComponents[id]
         row.updateDepth(depthChange)
       }
     },
@@ -315,8 +320,11 @@ export default {
       const differenceIdOuterId = this.rowElMap[outerId].top - this.rowElMap[rowId].top
       const cursorPositionAdjusted = cursorPosition + differenceIdOuterId
       const hoveringAbove = this.draggingAboveRow(cursorPositionAdjusted, direction, draggingIds)
+      const hoveringAboveDepth = this.rowDepths[hoveringAbove]
+      const depth = this.rowDepths[rowId]
+      const depthChange = hoveringAboveDepth - depth
       if (isFinal) {
-        return this.dropRow(rowId, hoveringAbove)
+        return this.dropRow(rowId, hoveringAbove, depthChange)
       }
       const otherSelectedIds = this.selectedIdsPlusChildren
         .filter(id => !draggingIds.includes(id))
@@ -331,6 +339,7 @@ export default {
         if (draggingIds.includes(id)) {
           row.beingDragged = true
           row.translateY = dragOffsetY
+          row.draggingDepth = row.depth + depthChange
           return
         }
         if (otherSelectedIds.includes(id)) {
@@ -353,10 +362,11 @@ export default {
         row.translateY = 0
         row.beingDragged = false
         row.beingDraggedOther = false
+        row.draggingDepth = null
       })
     },
-    dropRow (rowId, rowIdBelow) {
-      this.moveIdAndChildrenToPlaceOfTargetId(rowId, rowIdBelow)
+    dropRow (rowId, rowIdBelow, depthChange) {
+      this.moveIdAndChildrenToPlaceOfTargetId(rowId, rowIdBelow, depthChange)
       this.resetHoverPositions()
     },
   }

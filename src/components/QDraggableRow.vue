@@ -58,9 +58,9 @@ shadow-3()
   align-items center
   position relative
   z-index 2
-  transition transform 0ms
+  transition transform 0ms, margin-left 150ms
   &:not(.ext-draggable-row--being-dragged)
-    transition transform 150ms
+    transition transform 150ms, margin-left 150ms
   > *:not(.ext-draggable-row__selection-indicator)
     z-index 2
     height 100%
@@ -132,6 +132,7 @@ export default {
       selectedChild: false,
       beingDragged: false,
       beingDraggedOther: false,
+      draggingDepth: null,
       translateY: 0,
       elHeight: 0, // reset on select every time
       elOffsetTop: 0, // reset on select every time
@@ -226,7 +227,9 @@ export default {
     },
     style () {
       const transform = `translateY(${this.translateY}px)`
-      const depth = this.depth || 0
+      const depth = (Number.isInteger(this.draggingDepth))
+        ? this.draggingDepth
+        : this.depth || 0
       const lvl = depth - this.baseDepth
       const x = lvl * 20
       const marginLeft = `${x}px`
@@ -270,8 +273,9 @@ export default {
       const { top } = this.$el.getBoundingClientRect()
       this.elOffsetTop = top
     },
-    updateDepth (depthChange) {
-      const childrenIds = this.childrenIds
+    updateDepth (depthChange, customChildrenIds) {
+      // you can bypass childrenIds calculation by passing an array
+      const childrenIds = customChildrenIds || this.childrenIds
       const idAndChildren = [this.id, ...childrenIds]
       idAndChildren.forEach(id => {
         const row = this.rows.rowComponents[id]
