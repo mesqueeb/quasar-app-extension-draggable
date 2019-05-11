@@ -10,6 +10,7 @@
     @click.stop.prevent="tapped"
     v-touch-hold:200.mouse.stop.prevent="held"
     v-touch-pan.vertical.mightPrevent.mouse.mouseMightPrevent="handlePan"
+    v-touch-swipe.mouse.horizontal="swiped"
     @keydown.up.stop.prevent="e => rows.selectPrev(id, e)"
     @keydown.down.stop.prevent="e => rows.selectNext(id, e)"
     @keydown.up.alt.exact.stop.prevent="rows.moveUpSelection"
@@ -96,13 +97,14 @@ shadow-3()
 </style>
 
 <script>
-import { TouchPan, TouchHold } from 'quasar'
+import { TouchPan, TouchHold, TouchSwipe } from 'quasar'
 
 export default {
   name: 'QDraggableRow',
   directives: {
     TouchPan,
-    TouchHold
+    TouchHold,
+    TouchSwipe
   },
   props: {
     value: Number,
@@ -312,6 +314,11 @@ export default {
         if (document.activeElement.nodeName !== 'BODY') return
         this.rows.unselectAll()
       }, 200) // same length as `held` trigger
+    },
+    swiped (details) {
+      const { direction } = details
+      if (direction === 'right') this.incrementDepth()
+      if (direction === 'left') this.decrementDepth()
     },
     held (details) {
       this.startDragHover()
