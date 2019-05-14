@@ -1,5 +1,6 @@
 <template>
   <button
+    v-show="!isHidden"
     :class="[
       'ext-draggable-row', {
       'ext-draggable-row--being-dragged': beingDragged,
@@ -13,13 +14,15 @@
     v-touch-swipe.mouse.horizontal="swiped"
     @keydown.up.stop.prevent="e => rows.selectPrev(id, e)"
     @keydown.down.stop.prevent="e => rows.selectNext(id, e)"
-    @keydown.alt.up.exact.stop.prevent="rows.moveUpSelection"
-    @keydown.alt.down.exact.stop.prevent="rows.moveDownSelection"
-    @keydown.tab.exact.stop.prevent="rows.indentSelection"
-    @keydown.shift.tab.exact.stop.prevent="rows.unindentSelection"
-    @keydown.alt.right.exact.stop.prevent="rows.indentSelection"
-    @keydown.alt.left.exact.stop.prevent="rows.unindentSelection"
-    @keydown.esc.exact.stop.prevent="unselectAll"
+    @keydown.exact.alt.up.stop.prevent="rows.moveUpSelection"
+    @keydown.exact.alt.down.stop.prevent="rows.moveDownSelection"
+    @keydown.exact.tab.stop.prevent="rows.indentSelection"
+    @keydown.exact.shift.tab.stop.prevent="rows.unindentSelection"
+    @keydown.exact.alt.right.stop.prevent="rows.indentSelection"
+    @keydown.exact.alt.left.stop.prevent="rows.unindentSelection"
+    @keydown.exact.esc.stop.prevent="rows.unselectAll"
+    @keydown.exact.left.stop.prevent="rows.collapseSelection"
+    @keydown.exact.right.stop.prevent="rows.uncollapseSelection"
     @blur="onBlur"
     :style="style"
     :id="`js-${id}`"
@@ -35,7 +38,21 @@
         </div>
       </slot>
     </div>
-    <slot :selected="selected"/>
+    <div class="ext-draggable-row__row-wrapper">
+      <slot :selected="selected"/>
+      <slot
+        name="collapse-arrow"
+        :selected="selected"
+      >
+        <q-icon
+          v-if="showCollapseIcon"
+          size="2em"
+          :class="['collapse-icon', {'collapse-icon--reversed': collapsed}]"
+          @click.stop.prevent="e => updateCollapsed()"
+          :name="$q.iconSet.expansionItem.icon"
+        />
+      </slot>
+    </div>
   </button>
 </template>
 
@@ -69,6 +86,11 @@ shadow-3()
     height 100%
     width 100%
     text-align initial
+  &__row-wrapper
+    display flex
+    align-items center
+    > *:first-child
+      flex 1
   &__selection-indicator
     z-index 1
     position absolute
@@ -95,11 +117,17 @@ shadow-3()
         shadow-3()
   &--being-dragged-other
     opacity 0.5
+  .collapse-icon
+    transform scaleY(-1)
+    transition transform 300ms
+    &--reversed
+      transform scaleY(1)
 
 </style>
 
 <script>
 import { TouchPan, TouchHold, TouchSwipe } from 'quasar'
+import { QIcon } from 'quasar'
 
 export default {
   name: 'QDraggableRow',
@@ -107,6 +135,9 @@ export default {
     TouchPan,
     TouchHold,
     TouchSwipe
+  },
+  components: {
+    QIcon
   },
   props: {
     value: Number,
@@ -131,7 +162,8 @@ export default {
   },
   data () {
     return {
-      depth: this.value,
+      collapsed: false,
+      depth: this.value || 0,
       selected: false,
       selectedChild: false,
       beingDragged: false,
@@ -142,7 +174,14 @@ export default {
       elOffsetTop: 0, // reset on select every time
     }
   },
+  watch: {
+    value (newVal, oldVal) { this.depth = newVal },
+  },
   computed: {
+    isHidden () { return this.rows.hiddenIds.includes(this.id) },
+    showCollapseIcon () {
+      return this.childrenIds.length
+    },
     rows () { return this.$wrapper },
     rowOrder () { return this.rows.rowOrder },
     rowDepths () { return this.rows.rowDepths },
@@ -220,6 +259,12 @@ export default {
       const children = this.childrenIds
       return (children.length) ? children.slice(-1)[0] : this.id
     },
+    lastVisibleChildIdOrSelf () {
+      if (this.collapsed) return this.id
+      const children = this.childrenIds
+      const visibleChildren = children.filter(id => !this.rows.rowComponents[id].isHidden)
+      return (visibleChildren.length) ? visibleChildren.slice(-1)[0] : this.id
+    },
     rowHeightTotal () {
       const children = this.childrenIds
       const height = children.reduce((total, id) => {
@@ -270,12 +315,41 @@ export default {
     unselect () {
       this.selected = false
       this.selectedChild = false
-      this.$el.blur()
+      if (this.$el && this.$el.blur) this.$el.blur()
     },
     calcElPos () {
+      if (this.isHidden) {
+        this.elHeight = 0
+        this.elOffsetTop = 0
+        return
+      }
       this.elHeight = this.$el.offsetHeight
       const { top } = this.$el.getBoundingClientRect()
       this.elOffsetTop = top
+    },
+    setAndEmitCollapsed (setTo) {
+      this.collapsed = setTo
+      // set the depth (value prop) via input event (for v-model)
+      return new Promise((resolve, reject) => {
+        this.$emit('change-collapsed', setTo)
+        this.$nextTick(resolve)
+      })
+    },
+    updateCollapsed (setTo = !this.collapsed) {
+      this.setAndEmitCollapsed(setTo)
+      if (this.selected) this.$nextTick(this.select)
+      if (this.selectedChild) this.allParentIds.forEach(id => {
+        const row = this.rows.rowComponents[id]
+        if (row.selected) this.$nextTick(row.select)
+      })
+    },
+    setAndEmitDepth (depth) {
+      this.depth = depth
+      // set the depth (value prop) via input event (for v-model)
+      return new Promise((resolve, reject) => {
+        this.$emit('input', depth)
+        this.$nextTick(resolve)
+      })
     },
     updateDepth (depthChange, customChildrenIds) {
       // you can bypass childrenIds calculation by passing an array
@@ -285,14 +359,6 @@ export default {
         const row = this.rows.rowComponents[id]
         if (!row) return
         row.setAndEmitDepth(row.depth + depthChange)
-      })
-    },
-    setAndEmitDepth (depth) {
-      this.depth = depth
-      // set the depth (value prop) via input event (for v-model)
-      return new Promise((resolve, reject) => {
-        this.$emit('input', depth)
-        this.$nextTick(resolve)
       })
     },
     incrementDepth () {
