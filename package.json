@@ -1,6 +1,6 @@
 {
   "name": "quasar-app-extension-draggable",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "A Quasar extension that makes elements draggable and movable with keyboard.",
   "author": "Luca Ban - Mesqueeb",
   "license": "MIT",

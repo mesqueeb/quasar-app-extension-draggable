@@ -1,6 +1,5 @@
 <template>
   <transition-group
-    name="flip-list"
     :class="[
       'ext-draggable-rows', {
       'ext-draggable-rows--has-selection': hasSelection,
@@ -12,14 +11,12 @@
   </transition-group>
 </template>
 
-<style lang="stylus">
+<style lang="stylus" scoped>
 
 .ext-draggable-rows
   display flex
   flex-wrap wrap
   flex-direction column
-.flip-list-move
-  transition transform 150ms
 
 </style>
 
@@ -34,7 +31,7 @@ export default {
     value: Array,
   },
   provide () {
-    return { $wrapper: this } // Be careful how you name this to not overlap with Vue.js!!
+    return { $extDraggableRows: this }
   },
   data () {
     return {
@@ -42,7 +39,7 @@ export default {
       rows: [], // child vue components array
       rowComponents: {}, // child vue components by ID
       lastSelected: null,
-      dragging: false
+      dragging: false,
     }
   },
   computed: {
@@ -231,6 +228,12 @@ export default {
     calcElPosAll () {
       this.rows.forEach(row => row.calcElPos())
     },
+    collapseSelection () {
+      this.selectedIds.forEach(id => this.rowComponents[id].updateCollapsed(true))
+    },
+    uncollapseSelection () {
+      this.selectedIds.forEach(id => this.rowComponents[id].updateCollapsed(false))
+    },
     indentSelection () {
       this.selectedIds.forEach(id => this.rowComponents[id].incrementDepth())
     },
@@ -315,7 +318,7 @@ export default {
       const draggingRow = this.rowComponents[rowId]
       const rowChildren = draggingRow.childrenIds || []
       const draggingIds = [rowId, ...rowChildren]
-      const lastChildIdOrSelf = draggingRow.lastChildIdOrSelf
+      const lastChildIdOrSelf = draggingRow.lastVisibleChildIdOrSelf
       const outerId = (direction === 'up') ? rowId : lastChildIdOrSelf
       const differenceIdOuterId = this.rowElMap[outerId].top - this.rowElMap[rowId].top
       const cursorPositionAdjusted = cursorPosition + differenceIdOuterId

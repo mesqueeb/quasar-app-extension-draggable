@@ -1,10 +1,9 @@
 <template>
   <button
-    v-show="!isHidden"
     :class="[
-      'ext-draggable-row', {
-      'ext-draggable-row--being-dragged': beingDragged,
-      'ext-draggable-row--being-dragged-other': beingDraggedOther,
+      'ext-draggable-row__row-wrapper', {
+      'ext-draggable-row__row-wrapper--being-dragged': beingDragged,
+      'ext-draggable-row__row-wrapper--being-dragged-other': beingDraggedOther,
       'ext-draggable-row--selected': selected,
       'ext-draggable-row--selected-child': selectedChild,
     }]"
@@ -24,34 +23,25 @@
     @keydown.exact.left.stop.prevent="rows.collapseSelection"
     @keydown.exact.right.stop.prevent="rows.uncollapseSelection"
     @blur="onBlur"
-    :style="style"
-    :id="`js-${id}`"
+    :style="styleWrapper"
   >
     <div
-      v-show="selected"
-      class="ext-draggable-row__selection-indicator"
-      :style="styleSelectionIndicator"
+      v-show="!isHidden"
+      class="ext-draggable-row"
+      :style="styleRow"
     >
-      <slot name="selection-indicator">
-        <div class="ext-draggable-row__selection-indicator__default">
-          <div></div>
-        </div>
-      </slot>
-    </div>
-    <div class="ext-draggable-row__row-wrapper">
-      <slot :selected="selected"/>
-      <slot
-        name="collapse-arrow"
-        :selected="selected"
+      <div
+        v-show="selected"
+        class="ext-draggable-row__selection-indicator"
+        :style="styleSelectionIndicator"
       >
-        <q-icon
-          v-if="showCollapseIcon"
-          size="2em"
-          :class="['collapse-icon', {'collapse-icon--reversed': collapsed}]"
-          @click.stop.prevent="e => updateCollapsed()"
-          :name="$q.iconSet.expansionItem.icon"
-        />
-      </slot>
+        <slot name="selection-indicator">
+          <div class="ext-draggable-row__selection-indicator__default">
+            <div></div>
+          </div>
+        </slot>
+      </div>
+      <slot :selected="selected"/>
     </div>
   </button>
 </template>
@@ -71,26 +61,34 @@ shadow-3()
   -webkit-box-shadow bs
   box-shadow bs
 
-.ext-draggable-row
+.ext-draggable-row__row-wrapper
+  transition transform 150ms /* animation for the transition-group */
   reset-button()
+  flex 1
+  display flex
+  &--being-dragged
+    transition transform 0ms
+    z-index 3
+    .ext-draggable-row__selection-indicator
+      > *
+        shadow-3()
+  &--being-dragged-other
+    opacity 0.5
+  &--selected, &--selected-child
+    z-index 3
+
+.ext-draggable-row
   flex 1
   display flex
   align-items center
   position relative
   z-index 2
-  transition transform 0ms, margin-left 150ms
-  &:not(.ext-draggable-row--being-dragged)
-    transition transform 150ms, margin-left 150ms
+  transition margin-left 150ms
   > *:not(.ext-draggable-row__selection-indicator)
     z-index 2
     height 100%
     width 100%
     text-align initial
-  &__row-wrapper
-    display flex
-    align-items center
-    > *:first-child
-      flex 1
   &__selection-indicator
     z-index 1
     position absolute
@@ -108,26 +106,11 @@ shadow-3()
         opacity 0.6
         height 100%
         width 100%
-  &--selected, &--selected-child
-    z-index 3
-  &--being-dragged
-    z-index 3
-    .ext-draggable-row__selection-indicator
-      > *
-        shadow-3()
-  &--being-dragged-other
-    opacity 0.5
-  .collapse-icon
-    transform scaleY(-1)
-    transition transform 300ms
-    &--reversed
-      transform scaleY(1)
 
 </style>
 
 <script>
 import { TouchPan, TouchHold, TouchSwipe } from 'quasar'
-import { QIcon } from 'quasar'
 
 export default {
   name: 'QDraggableRow',
@@ -136,11 +119,9 @@ export default {
     TouchHold,
     TouchSwipe
   },
-  components: {
-    QIcon
-  },
   props: {
     value: Number,
+    collapsed: Boolean,
     id: {
       type: String,
       required: true
@@ -149,12 +130,16 @@ export default {
     selectedStyle: Object,
     hoverStyle: Object,
   },
+  provide () {
+    return { $extDraggableRow: this }
+  },
   inject: {
-    $wrapper: { default: null }
+    $extDraggableRows: { default: null }
   },
   created () {
-    if (!this.$wrapper) throw new Error('DraggableRow should be a child of DraggableRowsWrapper')
-    this.$wrapper.mountRow(this)
+    if (!this.$extDraggableRows) throw new Error('DraggableRow should be a child of DraggableRowsWrapper')
+    this.$extDraggableRows.mountRow(this)
+    this.adjustIsHidden()
   },
   mounted () {
     this.$el.addEventListener('mouseup', this.onMouseup)
@@ -162,8 +147,9 @@ export default {
   },
   data () {
     return {
-      collapsed: false,
       depth: this.value || 0,
+      isCollapsed: this.collapsed || false,
+      isHidden: false,
       selected: false,
       selectedChild: false,
       beingDragged: false,
@@ -176,13 +162,25 @@ export default {
   },
   watch: {
     value (newVal, oldVal) { this.depth = newVal },
+    collapsed (newVal, oldVal) { this.isCollapsed = newVal },
+    isCollapsed (newVal, oldVal) {
+      if (newVal === oldVal) return
+      // const oldVisible = this.rows.rowOrderVisible
+      // const newVisible = (newVal === true)
+      //   ? oldVisible.filter(id => !this.childrenIds.includes(id))
+      //   : this.rows.rowOrder.filter(id => oldVisible.includes(id) || this.childrenIds.includes(id))
+      // console.log('newVisible → ', newVisible)
+      // this.rows.$emit('update:rowOrderVisible', newVisible)
+      // if (newVal === false) this.rows.isUncollapsing = true
+      if (this.selected) this.$nextTick(this.select)
+      if (this.selectedChild) this.allParentIds.forEach(id => {
+        const row = this.rows.rowComponents[id]
+        if (row.selected) this.$nextTick(row.select)
+      })
+    },
   },
   computed: {
-    isHidden () { return this.rows.hiddenIds.includes(this.id) },
-    showCollapseIcon () {
-      return this.childrenIds.length
-    },
-    rows () { return this.$wrapper },
+    rows () { return this.$extDraggableRows },
     rowOrder () { return this.rows.rowOrder },
     rowDepths () { return this.rows.rowDepths },
     baseDepth () { return this.rows.baseDepth },
@@ -260,7 +258,7 @@ export default {
       return (children.length) ? children.slice(-1)[0] : this.id
     },
     lastVisibleChildIdOrSelf () {
-      if (this.collapsed) return this.id
+      if (this.isCollapsed) return this.id
       const children = this.childrenIds
       const visibleChildren = children.filter(id => !this.rows.rowComponents[id].isHidden)
       return (visibleChildren.length) ? visibleChildren.slice(-1)[0] : this.id
@@ -274,15 +272,18 @@ export default {
       }, this.elHeight)
       return height
     },
-    style () {
+    styleWrapper () {
       const transform = `translateY(${this.translateY}px)`
+      return { transform }
+    },
+    styleRow () {
       const depth = (Number.isInteger(this.draggingDepth))
         ? this.draggingDepth
         : this.depth || 0
       const lvl = depth - this.baseDepth
       const x = lvl * 20
       const marginLeft = `${x}px`
-      return { marginLeft, transform }
+      return { marginLeft }
     },
     styleSelectionIndicator () {
       return { height: this.rowHeightTotal + 'px' }
@@ -304,44 +305,55 @@ export default {
       this.rows.lastSelected = this.id
       this.$el.focus()
       // calc row heights to show selection indicator properly
-      this.$nextTick(this.calcElPos)
+      this.$nextTick(this.calcElHeight)
       // nextTick fixes problems when the row changes after select
     },
     selectAsChild () {
-      this.calcElPos()
       this.selectedChild = true
       this.selected = false
+      this.$nextTick(this.calcElHeight)
     },
     unselect () {
       this.selected = false
       this.selectedChild = false
       if (this.$el && this.$el.blur) this.$el.blur()
     },
-    calcElPos () {
-      if (this.isHidden) {
-        this.elHeight = 0
-        this.elOffsetTop = 0
-        return
-      }
+    calcElHeight () {
       this.elHeight = this.$el.offsetHeight
+    },
+    calcElPos () {
+      this.calcElHeight()
+      if (this.isHidden) return
       const { top } = this.$el.getBoundingClientRect()
       this.elOffsetTop = top
     },
     setAndEmitCollapsed (setTo) {
-      this.collapsed = setTo
+      this.isCollapsed = setTo
       // set the depth (value prop) via input event (for v-model)
       return new Promise((resolve, reject) => {
-        this.$emit('change-collapsed', setTo)
+        this.$emit('update:collapsed', setTo)
         this.$nextTick(resolve)
       })
     },
-    updateCollapsed (setTo = !this.collapsed) {
+    updateCollapsed (setTo = !this.isCollapsed, customChildrenIds) {
       this.setAndEmitCollapsed(setTo)
-      if (this.selected) this.$nextTick(this.select)
-      if (this.selectedChild) this.allParentIds.forEach(id => {
+      // you can bypass childrenIds calculation by passing an array
+      const childrenIds = customChildrenIds || this.childrenIds
+      childrenIds.forEach(id => {
         const row = this.rows.rowComponents[id]
-        if (row.selected) this.$nextTick(row.select)
+        if (!row) return
+        row.adjustIsHidden()
       })
+    },
+    adjustIsHidden () {
+      const prevIdSameDepthOrParent = this.prevIdSameDepthOrParent
+      const prevRow = this.rows.rowComponents[prevIdSameDepthOrParent]
+      if (!prevRow) return
+      const prevRowIsSibling = prevRow.depth === this.depth
+      const siblingIsHidden = prevRow.isHidden && prevRowIsSibling
+      const prevRowIsParent = prevRow.depth + 1 === this.depth
+      const parentIsCollapsedOrHidden = (prevRow.isCollapsed || prevRow.isHidden) && prevRowIsParent
+      this.isHidden = (siblingIsHidden || parentIsCollapsedOrHidden)
     },
     setAndEmitDepth (depth) {
       this.depth = depth
