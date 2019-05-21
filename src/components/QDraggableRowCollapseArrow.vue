@@ -36,9 +36,7 @@ export default {
   components: {
     QIcon
   },
-  props: {
-    value: Boolean,
-  },
+  props: {},
   inject: {
     $extDraggableRow: { default: null },
   },

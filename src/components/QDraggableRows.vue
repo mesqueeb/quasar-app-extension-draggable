@@ -40,22 +40,11 @@ export default {
       rowComponents: {}, // child vue components by ID
       lastSelected: null,
       dragging: false,
+      rowDepths: {}, // manually update this
+      baseDepth: 0, // manually update this
     }
   },
   computed: {
-    rowDepths () {
-      return this.rows.reduce((carry, row) => {
-        const id = row.id
-        if (!id) return carry
-        carry[id] = row.depth
-        return carry
-      }, {})
-    },
-    baseDepth () {
-      if (!this.rowDepths) return 0
-      const depthArray = Object.values(this.rowDepths)
-      return Math.min(...depthArray)
-    },
     rowElMap () {
       return this.rows.reduce((carry, row) => {
         if (!row) return carry
@@ -104,13 +93,16 @@ export default {
   },
   methods: {
     mountRow (rowComponent) {
+      const { id, depth } = rowComponent
       this.rows.push(rowComponent)
-      this.rowComponents[rowComponent.id] = rowComponent
-      rowComponent.$once('hook:beforeDestroy', _ => {
-        const index = this.rows.findIndex(row => row.id === rowComponent.id)
+      this.$set(this.rowComponents, id, rowComponent)
+      this.$set(this.rowDepths, id, depth)
+      if (depth < this.baseDepth) this.baseDepth = depth
+      rowComponent.$on('hook:beforeDestroy', _ => {
+        const index = this.rows.findIndex(row => row.id === id)
         if (index === -1) return
         this.rows.splice(index, 1)
-        this.rowComponents[rowComponent.id] = null
+        this.$set(this.rowComponents, id, null)
       })
     },
     setNewOrder (newOrder) {

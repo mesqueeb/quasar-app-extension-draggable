@@ -111,6 +111,7 @@ shadow-3()
 
 <script>
 import { TouchPan, TouchHold, TouchSwipe } from 'quasar'
+import rafBatch from '../helpers/rafHelper'
 
 export default {
   name: 'QDraggableRow',
@@ -139,7 +140,7 @@ export default {
   created () {
     if (!this.$extDraggableRows) throw new Error('DraggableRow should be a child of DraggableRowsWrapper')
     this.$extDraggableRows.mountRow(this)
-    this.adjustIsHidden()
+    rafBatch.queue([this.adjustIsHidden])
   },
   mounted () {
     this.$el.addEventListener('mouseup', this.onMouseup)
@@ -162,20 +163,14 @@ export default {
   },
   watch: {
     value (newVal, oldVal) { this.depth = newVal },
+    depth (newVal, oldVal) { this.rows.rowDepths[this.id] = newVal },
     collapsed (newVal, oldVal) { this.isCollapsed = newVal },
     isCollapsed (newVal, oldVal) {
       if (newVal === oldVal) return
-      // const oldVisible = this.rows.rowOrderVisible
-      // const newVisible = (newVal === true)
-      //   ? oldVisible.filter(id => !this.childrenIds.includes(id))
-      //   : this.rows.rowOrder.filter(id => oldVisible.includes(id) || this.childrenIds.includes(id))
-      // console.log('newVisible → ', newVisible)
-      // this.rows.$emit('update:rowOrderVisible', newVisible)
-      // if (newVal === false) this.rows.isUncollapsing = true
-      if (this.selected) this.$nextTick(this.select)
+      if (this.selected) rafBatch.queue([this.select])
       if (this.selectedChild) this.allParentIds.forEach(id => {
         const row = this.rows.rowComponents[id]
-        if (row.selected) this.$nextTick(row.select)
+        if (row.selected) rafBatch.queue([row.select])
       })
     },
   },
@@ -305,13 +300,15 @@ export default {
       this.rows.lastSelected = this.id
       this.$el.focus()
       // calc row heights to show selection indicator properly
-      this.$nextTick(this.calcElHeight)
+      // this.$nextTick(this.calcElHeight)
+      rafBatch.queue([this.calcElHeight])
       // nextTick fixes problems when the row changes after select
     },
     selectAsChild () {
       this.selectedChild = true
       this.selected = false
-      this.$nextTick(this.calcElHeight)
+      // this.$nextTick(this.calcElHeight)
+      rafBatch.queue([this.calcElHeight])
     },
     unselect () {
       this.selected = false
@@ -336,14 +333,22 @@ export default {
       })
     },
     updateCollapsed (setTo = !this.isCollapsed, customChildrenIds) {
-      this.setAndEmitCollapsed(setTo)
       // you can bypass childrenIds calculation by passing an array
       const childrenIds = customChildrenIds || this.childrenIds
-      childrenIds.forEach(id => {
-        const row = this.rows.rowComponents[id]
-        if (!row) return
-        row.adjustIsHidden()
-      })
+      // childrenIds.map(id => {
+      //   const row = this.rows.rowComponents[id]
+      //   if (!row) return
+      //   row.adjustIsHidden()
+      // })
+      this.setAndEmitCollapsed(setTo)
+      const queue = childrenIds
+        .map(id => {
+          const row = this.rows.rowComponents[id]
+          if (!row) return
+          return row.adjustIsHidden
+        })
+      // queue.push(_ => this.setAndEmitCollapsed(setTo))
+      rafBatch.queue(queue)
     },
     adjustIsHidden () {
       const prevIdSameDepthOrParent = this.prevIdSameDepthOrParent
