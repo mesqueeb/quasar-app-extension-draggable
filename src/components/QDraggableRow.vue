@@ -375,6 +375,12 @@ export default {
       // queue.push(_ => this.setAndEmitCollapsed(setTo))
       rafBatch.queue(queue)
     },
+    uncollapseAllUpwards () {
+      const parentRow = this.rows.rowComponents[this.parentId]
+      if (!parentRow) return
+      if (parentRow.isCollapsed) parentRow.updateCollapsed(false)
+      if (parentRow.isHidden) parentRow.uncollapseAllUpwards()
+    },
     adjustIsHidden () {
       const prevIdSameDepthOrParent = this.prevIdSameDepthOrParent
       const prevRow = this.rows.rowComponents[prevIdSameDepthOrParent]

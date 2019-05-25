@@ -279,9 +279,13 @@ export default {
       if (Number.isInteger(depthChange)) {
         // pass the childrenIds that was calculated before the newOrder
         row.updateDepth(depthChange, childrenIds)
+      } else {
+        this.adjustDepthsAfterMove(id)
       }
-      this.adjustDepthsAfterMove(id)
-      this.$nextTick(_ => this.focusRow(id))
+      this.$nextTick(_ => {
+        row.uncollapseAllUpwards()
+        this.focusRow(id)
+      })
     },
     adjustDepthsAfterMove (id) {
       const depth = this.rowDepths[id]
