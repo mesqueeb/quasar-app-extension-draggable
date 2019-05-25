@@ -245,13 +245,13 @@ export default {
     },
     moveDown (id) {
       const lastChildIdOrSelf = this.rowComponents[id].lastChildIdOrSelf
-      const nextId = this.rowComponents[lastChildIdOrSelf].nextIdShown
+      const nextId = this.rowComponents[lastChildIdOrSelf].nextId
       if (!nextId) return
       const nextDepth = this.rowDepths[nextId]
       if (nextDepth < this.rowDepths[id]) {
         const nextNextId = (this.rowComponents[nextId].isLastItem)
           ? '__end__'
-          : this.rowComponents[nextId].nextIdShown
+          : this.rowComponents[nextId].nextId
         this.moveIdAndChildrenToPlaceOfTargetId(id, nextNextId)
         return
       }
@@ -259,7 +259,7 @@ export default {
       if (!nextIdLastChildIdOrSelf) return
       const targetId = (this.rowComponents[nextIdLastChildIdOrSelf].isLastItem)
         ? '__end__'
-        : this.rowComponents[nextIdLastChildIdOrSelf].nextIdShown
+        : this.rowComponents[nextIdLastChildIdOrSelf].nextId
       this.moveIdAndChildrenToPlaceOfTargetId(id, targetId)
     },
     moveIdAndChildrenToPlaceOfTargetId (id, targetId, depthChange) {
@@ -286,7 +286,7 @@ export default {
     adjustDepthsAfterMove (id) {
       const depth = this.rowDepths[id]
       const row = this.rowComponents[id]
-      const prevId = row.prevIdShown
+      const prevId = row.prevId
       const topRow = prevId === undefined
       const prevDepth = this.rowDepths[prevId]
       if (topRow || depth > prevDepth + 1) {

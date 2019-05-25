@@ -184,26 +184,51 @@ export default {
       if (!this.rowOrder.length) return true
       return this.rowOrder.slice(-1)[0] === this.id
     },
-    prevIdShown () {
+    prevId () {
       const index = this.index
       if (index === 0) return
       return this.rowOrder[index - 1]
     },
-    nextIdShown () {
+    prevIdShown () {
+      console.log('1 → ', 1)
+      let index = this.index
+      let searching = true
+      let prevId
+      while (searching) {
+        index--
+        prevId = this.rowOrder[index]
+        const row = this.rows.rowComponents[prevId]
+        searching = row && row.isHidden
+      }
+      return prevId
+    },
+    nextId () {
       const index = this.index
       if (index === this.rowOrder.length - 1) return
       return this.rowOrder[index + 1]
     },
+    nextIdShown () {
+      let index = this.index
+      let searching = true
+      let nextId
+      while (searching) {
+        index++
+        nextId = this.rowOrder[index]
+        const row = this.rows.rowComponents[nextId]
+        searching = row && row.isHidden
+      }
+      return nextId
+    },
     prevIdSameDepthOrParent () {
       const maxDepth = this.depth
-      let prevId = this.prevIdShown
+      let prevId = this.prevId
       if (!prevId) return
       let prevDepth = this.rowDepths[prevId]
       // return parent
       if (prevDepth + 1 === maxDepth) return prevId
       // return prev sibling
       while (prevDepth && prevDepth > maxDepth) {
-        prevId = this.rows.rowComponents[prevId].prevIdShown
+        prevId = this.rows.rowComponents[prevId].prevId
         prevDepth = this.rowDepths[prevId]
       }
       return prevId
@@ -379,7 +404,7 @@ export default {
       })
     },
     incrementDepth () {
-      const prevId = this.prevIdShown
+      const prevId = this.prevId
       if (!prevId) return
       const prevIdDepth = this.rows.rowDepths[prevId]
       if (this.depth >= prevIdDepth + 1) return
