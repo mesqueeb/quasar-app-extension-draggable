@@ -26,12 +26,12 @@
     :style="styleWrapper"
   >
     <div
-      v-show="!isHidden"
+      v-if="!isHidden"
       class="ext-draggable-row"
       :style="styleRow"
     >
       <div
-        v-show="selected"
+        v-if="selected"
         class="ext-draggable-row__selection-indicator"
         :style="styleSelectionIndicator"
       >
@@ -190,7 +190,6 @@ export default {
       return this.rowOrder[index - 1]
     },
     prevIdShown () {
-      console.log('1 → ', 1)
       let index = this.index
       let searching = true
       let prevId
