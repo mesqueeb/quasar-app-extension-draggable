@@ -1,5 +1,9 @@
 # Quasar extension: Draggable 🚡
 
+> ARCHIVED:
+> When I need similar functionality again in the future I will
+> recreate a new project that is framework agnostic.
+
 A Quasar extension that makes elements draggable and movable with keyboard.
 
 ### My extensions
